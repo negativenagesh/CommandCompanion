@@ -7,34 +7,69 @@ import json
 import re
 import time
 import google.generativeai as genai
+import shutil
 
 # Configure Gemini API with your key
 genai.configure(api_key="AIzaSyCG8jatzOUvBPfscCi757v8zk_Ga6NZjPE")
 
 # Allowed apps and system tasks for security
-allowed_apps = {
+app_aliases = {
     'vscode': 'code',
     'trash': 'nautilus trash:///',
     'brave': 'brave-browser',
     'firefox': 'firefox',
     'terminal': 'gnome-terminal',
-    'files': 'nautilus'
+    'files': 'nautilus',
+    'chrome': 'google-chrome',
+    'libreoffice': 'libreoffice',
+    'calculator': 'gnome-calculator',
+    'gedit': 'gedit',
+    'text editor': 'gedit',
+    'vlc': 'vlc',
+    'settings': 'gnome-control-center'
 }
 
 allowed_tasks = {
     'empty_trash': 'rm -rf ~/.local/share/Trash/*'
 }
 
+def is_app_available(app_cmd):
+    """Check if an application exists in the system path."""
+    return shutil.which(app_cmd) is not None
+
 def open_app(app_name, reuse_window=False):
-    """Open an application based on the provided name."""
-    app_cmd = allowed_apps.get(app_name.lower())
-    if app_cmd:
-        cmd = [app_cmd]
-        if app_name.lower() == 'vscode' and reuse_window:
+    """Open an application based on the provided name.
+    If it's in aliases, use that command, otherwise try to run the app directly."""
+    
+    # Clean app name to prevent shell injection
+    app_name = app_name.lower().strip()
+    
+    # Check if it's a known alias
+    app_cmd = app_aliases.get(app_name)
+    
+    if not app_cmd:
+        # If not a known alias, use the app name directly (without special characters)
+        app_cmd = ''.join(c for c in app_name if c.isalnum() or c in ' -_.')
+    
+    # Verify app exists before attempting to run
+    if app_cmd and (is_app_available(app_cmd.split()[0]) or os.path.exists(app_cmd.split()[0])):
+        cmd = [app_cmd.split()[0]]  # Use only the command, not arguments
+        
+        # Add additional arguments if needed
+        if len(app_cmd.split()) > 1:
+            cmd.extend(app_cmd.split()[1:])
+            
+        # Add special handling for VSCode
+        if app_name == 'vscode' and reuse_window:
             cmd.append('--reuse-window')
-        subprocess.Popen(cmd)
-        return f"Opened {app_name}"
-    return f"Application '{app_name}' not recognized or not allowed"
+            
+        try:
+            subprocess.Popen(cmd)
+            return f"Opened {app_name}"
+        except Exception as e:
+            return f"Error opening {app_name}: {str(e)}"
+    
+    return f"Application '{app_name}' not found or not executable"
 
 def system_task(task_name):
     """Perform a predefined system task."""
@@ -131,16 +166,20 @@ def interpret_command(prompt):
     try:
         model = genai.GenerativeModel('gemini-1.5-flash')
         response = model.generate_content(
-            f"You are an assistant that interprets natural language commands for an Ubuntu system. "
+            f"You are an assistant that interprets natural language commands for an Ubuntu Linux system. "
             f"Based on the command, return a JSON object or an array of JSON objects with the following structure:\n"
-            f"- For opening an application: {{'action': 'open_app', 'app': '<app_name>'}}\n"
+            f"- For opening any application: {{'action': 'open_app', 'app': '<app_name>'}}\n"
             f"- For performing a system task: {{'action': 'system_task', 'task': '<task_name>'}}\n"
             f"- For creating a file with generated content: {{'action': 'create_file', 'type': '<content_type>', 'topic': '<topic>'}}\n"
             f"- For quitting the application: {{'action': 'quit'}}\n"
             f"If the command is unclear or doesn't match any action, return {{'action': 'unknown'}}.\n"
             f"For multi-step commands, return an array of actions.\n"
+            f"The system can now open ANY application available on the Linux system, not just predefined ones.\n"
             f"Examples:\n"
             f"- 'open VSCode': {{'action': 'open_app', 'app': 'vscode'}}\n"
+            f"- 'open Firefox': {{'action': 'open_app', 'app': 'firefox'}}\n"
+            f"- 'launch GIMP': {{'action': 'open_app', 'app': 'gimp'}}\n"
+            f"- 'run calculator': {{'action': 'open_app', 'app': 'gnome-calculator'}}\n"
             f"- 'empty the trash': {{'action': 'system_task', 'task': 'empty_trash'}}\n"
             f"- 'build a portfolio website': {{'action': 'create_file', 'type': 'website', 'topic': 'portfolio'}}\n"
             f"- 'open VSCode and create a Python file for a CNN model': [{{\"action\": \"open_app\", \"app\": \"vscode\"}}, {{\"action\": \"create_file\", \"type\": \"python\", \"topic\": \"CNN model\"}}]\n"
