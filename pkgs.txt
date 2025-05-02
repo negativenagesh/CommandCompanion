@@ -1,2 +1,2 @@
 google-generativeai
-python3-tk
+dotenv
