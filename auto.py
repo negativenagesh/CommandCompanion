@@ -1,4 +1,3 @@
-# File: ubuntu_command_executor.py
 import subprocess
 import tkinter as tk
 from tkinter import ttk
@@ -8,9 +7,11 @@ import re
 import time
 import google.generativeai as genai
 import shutil
+from dotenv import load_dotenv
 
-# Configure Gemini API with your key
-genai.configure(api_key="AIzaSyCG8jatzOUvBPfscCi757v8zk_Ga6NZjPE")
+load_dotenv()
+
+genai.configure(api_key=os.getenv('GENAI_API_KEY'))
 
 # Allowed apps and system tasks for security
 app_aliases = {
