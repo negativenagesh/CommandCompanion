@@ -9,6 +9,7 @@ import google.generativeai as genai
 import shutil
 import tempfile
 import uuid
+from datetime import datetime
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -36,8 +37,12 @@ allowed_tasks = {
     'empty_trash': 'rm -rf ~/.local/share/Trash/*'
 }
 
-# Track the most recent VSCode session
-latest_vscode_folder = None
+# Track the most recent VSCode window information
+vscode_info = {
+    "folder": None,
+    "window_id": None,
+    "timestamp": None
+}
 
 def is_app_available(app_cmd):
     """Check if an application exists in the system path."""
@@ -46,7 +51,7 @@ def is_app_available(app_cmd):
 def open_app(app_name, reuse_window=False):
     """Open an application based on the provided name.
     If it's in aliases, use that command, otherwise try to run the app directly."""
-    global latest_vscode_folder
+    global vscode_info
     
     # Clean app name to prevent shell injection
     app_name = app_name.lower().strip()
@@ -68,21 +73,32 @@ def open_app(app_name, reuse_window=False):
             
         # Special handling for VSCode to ensure we can track the new window
         if app_name == 'vscode' and not reuse_window:
-            # Create a unique temporary folder for VSCode to open
-            # This will help us target this specific VSCode window later
-            session_folder = tempfile.mkdtemp(prefix="vscode_session_")
-            latest_vscode_folder = session_folder
+            # Create a more permanent workspace folder in the home directory
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            home_dir = os.path.expanduser("~")
+            session_folder = os.path.join(home_dir, f"vscode_workspace_{timestamp}")
+            
+            # Create the directory if it doesn't exist
+            if not os.path.exists(session_folder):
+                os.makedirs(session_folder)
+            
+            # Update global tracking info
+            vscode_info["folder"] = session_folder
+            vscode_info["timestamp"] = timestamp
+            vscode_info["window_id"] = str(uuid.uuid4())
             
             # Create a placeholder file in this folder to make sure VSCode shows something
-            placeholder_path = os.path.join(session_folder, "placeholder.txt")
+            placeholder_path = os.path.join(session_folder, "README.md")
             with open(placeholder_path, "w") as f:
-                f.write("# VSCode session placeholder - this file can be deleted")
+                f.write(f"# New VSCode Workspace\n\nCreated by CommandCompanion at {timestamp}\n")
             
+            # Force a completely new window with the workspace folder
             cmd.extend(["--new-window", session_folder])
             
             try:
                 subprocess.Popen(cmd)
-                return f"Opened {app_name} with new session"
+                print(f"Opened VSCode with workspace: {session_folder}")
+                return f"Opened {app_name} with new workspace"
             except Exception as e:
                 return f"Error opening {app_name}: {str(e)}"
         elif app_name == 'vscode' and reuse_window:
@@ -122,7 +138,7 @@ def generate_content(prompt):
 
 def create_file(content_type, topic, reuse_vscode=False):
     """Create a file with generated content and open it in the same VSCode instance if specified."""
-    global latest_vscode_folder
+    global vscode_info
     
     if content_type == 'python':
         prompt = (
@@ -132,35 +148,46 @@ def create_file(content_type, topic, reuse_vscode=False):
         )
         content = generate_content(prompt)
         if content:
-            filename = f"{topic.replace(' ', '_')}.py"
+            filename = f"{topic.replace(' ', '_').lower()}.py"
             
             # Determine where to save the file
-            if latest_vscode_folder and os.path.exists(latest_vscode_folder):
-                # Save in the most recently opened VSCode session folder
-                filepath = os.path.join(latest_vscode_folder, filename)
+            folder_path = vscode_info.get("folder")
+            if folder_path and os.path.exists(folder_path):
+                filepath = os.path.join(folder_path, filename)
+                print(f"Creating file in tracked VSCode folder: {filepath}")
             else:
-                # Save in the current directory if no VSCode session is tracked
-                filepath = filename
+                # Fallback to current directory
+                filepath = os.path.abspath(filename)
+                print(f"Creating file in current directory: {filepath}")
                 
             try:
-                with open(filepath, 'w') as f:
+                # Make sure we have absolute paths
+                abs_filepath = os.path.abspath(filepath)
+                
+                # Write the content to the file
+                with open(abs_filepath, 'w') as f:
                     f.write(content)
-                    
-                if latest_vscode_folder and os.path.exists(latest_vscode_folder):
-                    # The file will automatically appear in the VSCode window that has this folder open
-                    return f"Created {filename} in the new VSCode window"
+                print(f"Successfully wrote to {abs_filepath}")
+                
+                if folder_path and os.path.exists(folder_path):
+                    # File was already created in the VSCode workspace folder
+                    # It should appear automatically, but we'll open it explicitly just to be sure
+                    try:
+                        subprocess.run(['code', '--goto', abs_filepath])
+                        return f"Created {filename} in the VSCode workspace"
+                    except Exception as e:
+                        print(f"Warning: Could not open file in VSCode: {str(e)}")
+                        return f"Created {filename} in the VSCode workspace"
                 else:
-                    # No tracked VSCode session, open in any available window or new window
-                    cmd = ['code', filepath]
+                    # No tracked VSCode session, open normally
+                    cmd = ['code', abs_filepath]
                     if reuse_vscode:
                         cmd.append('--reuse-window')
-                    else:
-                        cmd.append('--new-window')
                     subprocess.Popen(cmd)
                     return f"Created and opened {filename}"
             except Exception as e:
                 print(f"Error writing file {filepath}: {str(e)}")
-                return f"Failed to write file {filename}"
+                return f"Failed to write file {filename}: {str(e)}"
         else:
             print(f"Failed to generate content for topic: {topic}")
             return "Failed to generate Python code - check console for details"
@@ -172,24 +199,33 @@ def create_file(content_type, topic, reuse_vscode=False):
         )
         content = generate_content(prompt)
         if content:
-            filename = f"{topic.replace(' ', '_')}.html"
+            filename = f"{topic.replace(' ', '_').lower()}.html"
             
             # Determine where to save the file
-            if latest_vscode_folder and os.path.exists(latest_vscode_folder):
-                # Save in the most recently opened VSCode session folder
-                filepath = os.path.join(latest_vscode_folder, filename)
+            folder_path = vscode_info.get("folder")
+            if folder_path and os.path.exists(folder_path):
+                filepath = os.path.join(folder_path, filename)
+                print(f"Creating file in tracked VSCode folder: {filepath}")
             else:
-                # Save in the current directory if no VSCode session is tracked
-                filepath = filename
+                # Fallback to current directory
+                filepath = os.path.abspath(filename)
+                print(f"Creating file in current directory: {filepath}")
                 
             try:
-                with open(filepath, 'w') as f:
+                # Make sure we have absolute paths
+                abs_filepath = os.path.abspath(filepath)
+                
+                # Write the content to the file
+                with open(abs_filepath, 'w') as f:
                     f.write(content)
-                subprocess.Popen(['xdg-open', filepath])
-                return f"Created and opened {filename}"
+                print(f"Successfully wrote to {abs_filepath}")
+                
+                # Open the HTML file in the default browser
+                subprocess.Popen(['xdg-open', abs_filepath])
+                return f"Created and opened {filename} in browser"
             except Exception as e:
                 print(f"Error writing file {filepath}: {str(e)}")
-                return f"Failed to write file {filename}"
+                return f"Failed to write file {filename}: {str(e)}"
         return "Failed to generate website content - check console for details"
     return f"Unsupported content type: {content_type}"
 
@@ -290,7 +326,7 @@ def execute_action(action_data, context=None):
 
 def on_submit():
     """Handle the submit button press."""
-    global latest_vscode_folder
+    global vscode_info
     
     user_input = entry.get().strip()
     if user_input:
@@ -298,13 +334,14 @@ def on_submit():
         status_messages = []
         context = {}  # Context to track if VSCode was opened
         
-        for action_data in actions:
+        for i, action_data in enumerate(actions):
+            # For multi-step commands involving VSCode, add extra delay
+            if i > 0 and action_data.get('action') == 'create_file' and actions[i-1].get('action') == 'open_app' and actions[i-1].get('app', '').lower() == 'vscode':
+                print("Waiting for VSCode to fully initialize before creating file...")
+                time.sleep(3)  # Increased wait time for VSCode to fully initialize
+            
             status = execute_action(action_data, context)
             status_messages.append(status)
-            
-            # Add proper delay between opening VSCode and creating files
-            if action_data.get('action') == 'open_app' and action_data.get('app', '').lower() == 'vscode':
-                time.sleep(2)  # Increased wait time for VSCode to fully initialize
         
         status_label.config(text="; ".join(status_messages))
         entry.delete(0, tk.END)  # Clear the input field
