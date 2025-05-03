@@ -12,6 +12,10 @@
 
 CommandCompanion is an AI-powered assistant that allows users to control their Fedora system effortlessly using natural language commands. Whether it's launching applications, creating files with AI-generated content, or performing system tasks, CommandCompanion automates these operations with precision.
 
+<div align="center">
+  <img src="demo/demo.gif" alt="CommandCompanion Demo" width="800">
+</div>
+
 ## Setup for Fedora
 
 1. Clone the repository and give a star:
