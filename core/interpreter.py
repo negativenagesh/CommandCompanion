@@ -1,7 +1,3 @@
-"""
-Command interpretation module for CommandCompanion
-"""
-
 import json
 import google.generativeai as genai
 from config.settings import AI_MODEL, COMMAND_INTERPRETATION_PROMPT
