@@ -1,6 +1,5 @@
 <div align="center">
     <img src="CommandCompanion-logo/cover.png" alt="ComComp logo" style="width: 700px; height: 300px;">
-    <p>Real pics or AI tricks? We’ve got your back before you click!</p>
 </div>
 
 <div align="center">
