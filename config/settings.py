@@ -4,8 +4,8 @@ Optimized for Fedora OS
 """
 
 import os
+import shutil
 
-# GUI configuration
 GUI_TITLE = "CommandCompanion"
 GUI_SIZE = "650x320"
 GUI_CONFIG = {
@@ -20,11 +20,53 @@ GUI_CONFIG = {
     "footer_fg": "#7f8c8d"
 }
 
-# Fedora-specific application aliases
+def get_brave_executable():
+    """
+    Find the correct Brave browser executable for Fedora.
+    Returns the full command with any necessary flags.
+    """
+    # Check possible executable names for Brave on Fedora
+    possible_names = ['brave-browser', 'brave', 'brave-browser-stable', 'brave-browser-beta', 'brave-bin']
+    for name in possible_names:
+        path = shutil.which(name)
+        if path:
+            print(f"Found Brave browser at: {path}")
+            return path
+    
+    # Check common installation paths if executable not in PATH
+    common_paths = [
+        '/usr/bin/brave-browser',
+        '/usr/bin/brave',
+        '/opt/brave.com/brave/brave-browser',
+        '/opt/brave/brave',
+        '/usr/lib/brave-browser/brave-browser',
+        '/app/bin/brave'  # For Flatpak installation
+    ]
+    for path in common_paths:
+        if os.path.exists(path) and os.access(path, os.X_OK):
+            print(f"Found Brave browser at: {path}")
+            return path
+    
+    # Try flatpak command as a last resort
+    flatpak_path = shutil.which('flatpak')
+    if flatpak_path:
+        # Check if Brave is installed via Flatpak
+        try:
+            result = subprocess.run(['flatpak', 'list', '--app'], 
+                              capture_output=True, text=True)
+            if 'com.brave.Browser' in result.stdout:
+                print("Found Brave browser installed via Flatpak")
+                return 'flatpak run com.brave.Browser'
+        except:
+            pass
+    
+    print("WARNING: Could not find Brave browser executable")
+    return 'brave-browser'  # Fall back to default name
+
 app_aliases = {
     'vscode': 'code',
     'trash': 'nautilus trash:///',
-    'brave': 'brave-browser',
+    'brave': get_brave_executable(),
     'firefox': 'firefox',
     'terminal': 'gnome-terminal',
     'files': 'nautilus',

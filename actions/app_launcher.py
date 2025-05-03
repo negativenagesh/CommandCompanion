@@ -18,17 +18,7 @@ vscode_info = {
 }
 
 def open_app(app_name, reuse_window=False):
-    """
-    Open an application based on the provided name.
-    If it's in aliases, use that command, otherwise try to run the app directly.
-    
-    Args:
-        app_name (str): Name of the application to open
-        reuse_window (bool): Whether to reuse existing window (for VSCode)
-        
-    Returns:
-        str: Status message about the operation
-    """
+    """Open an application based on the provided name."""
     global vscode_info
     
     # Clean app name to prevent shell injection
@@ -41,7 +31,18 @@ def open_app(app_name, reuse_window=False):
         # If not a known alias, use the app name directly (without special characters)
         app_cmd = ''.join(c for c in app_name if c.isalnum() or c in ' -_.')
     
-    # Verify app exists before attempting to run
+    print(f"Attempting to launch {app_name} with command: {app_cmd}")
+    
+    # Handle special case for Flatpak commands
+    if app_cmd and 'flatpak run' in app_cmd:
+        try:
+            subprocess.Popen(app_cmd.split())
+            return f"Opened {app_name}"
+        except Exception as e:
+            print(f"Error launching app with flatpak: {str(e)}")
+            return f"Error opening {app_name}: {str(e)}"
+    
+    # Normal case: Verify app exists before attempting to run
     if app_cmd and (is_app_available(app_cmd.split()[0]) or os.path.exists(app_cmd.split()[0])):
         cmd = [app_cmd.split()[0]]  # Use only the command, not arguments
         
@@ -49,7 +50,7 @@ def open_app(app_name, reuse_window=False):
         if len(app_cmd.split()) > 1:
             cmd.extend(app_cmd.split()[1:])
             
-        # Special handling for VSCode to ensure we can track the new window
+        # Special handling for VSCode
         if app_name == 'vscode' and not reuse_window:
             # Create a more permanent workspace folder in the home directory
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -83,8 +84,11 @@ def open_app(app_name, reuse_window=False):
         
         try:
             subprocess.Popen(cmd)
+            print(f"Successfully launched: {' '.join(cmd)}")
             return f"Opened {app_name}"
         except Exception as e:
+            print(f"Error executing command {cmd}: {str(e)}")
             return f"Error opening {app_name}: {str(e)}"
     
+    print(f"Application not found or not executable: {app_cmd}")
     return f"Application '{app_name}' not found or not executable"
