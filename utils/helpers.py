@@ -1,9 +1,5 @@
-"""
-Helper functions for CommandCompanion
-"""
-
 import json
-import re  # Add this import for regular expressions
+import re
 import shutil
 import os
 
