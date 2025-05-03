@@ -5,6 +5,7 @@ Optimized for Fedora OS
 
 import os
 import shutil
+import subprocess
 
 GUI_TITLE = "CommandCompanion"
 GUI_SIZE = "650x320"
@@ -30,7 +31,6 @@ def get_brave_executable():
     for name in possible_names:
         path = shutil.which(name)
         if path:
-            print(f"Found Brave browser at: {path}")
             return path
     
     # Check common installation paths if executable not in PATH
@@ -44,7 +44,6 @@ def get_brave_executable():
     ]
     for path in common_paths:
         if os.path.exists(path) and os.access(path, os.X_OK):
-            print(f"Found Brave browser at: {path}")
             return path
     
     # Try flatpak command as a last resort
@@ -55,7 +54,6 @@ def get_brave_executable():
             result = subprocess.run(['flatpak', 'list', '--app'], 
                               capture_output=True, text=True)
             if 'com.brave.Browser' in result.stdout:
-                print("Found Brave browser installed via Flatpak")
                 return 'flatpak run com.brave.Browser'
         except:
             pass
