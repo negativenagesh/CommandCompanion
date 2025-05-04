@@ -1,3 +1,10 @@
 google-generativeai
 dotenv
 setuptools
+PyAudio
+pyttsx3
+pvporcupine
+SpeechRecognition
+pocketsphinx
+sudo dnf install python3-devel portaudio-devel swig
+sudo dnf install pulseaudio-libs-devel
