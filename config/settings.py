@@ -118,3 +118,12 @@ COMMAND_INTERPRETATION_PROMPT = (
     "- 'open VSCode and create a Python file for a CNN model': [{{'action': 'open_app', 'app': 'vscode'}}, {{'action': 'create_file', 'type': 'python', 'topic': 'CNN model'}}]\n"
     "Command: '{prompt}'"
 )
+
+SPEECH_CONFIG = {
+    "wake_word": "comp",           # Default wake word
+    "custom_wake_word_path": None,     # Path to custom wake word file, if used
+    "speech_recognition_timeout": 5,   # Seconds to listen for command
+    "recognition_service": "google",   # Speech recognition service to use
+    "sensitivity": 0.6,                # Wake word detection sensitivity (0-1)
+    "enable_audio_feedback": True      # Whether to use text-to-speech feedback
+}
