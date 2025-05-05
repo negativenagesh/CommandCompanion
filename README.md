@@ -61,6 +61,6 @@ python main.py
 Simply type a command in natural language, such as:
 
 "open Firefox and search for Python tutorials"
-"create a Python file with a neural network model"
-"build a portfolio website"
+"create a Python file with a neural network model in vscode"
+"build a portfolio website in vscode"
 "empty the trash"
